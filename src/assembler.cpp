@@ -6,51 +6,20 @@
 #include <cstdint>
 #include <algorithm>
 #include <iterator>
+#include <cstdint>
 
 
 namespace opcode {
-    std::vector<std::string> opcodes {
-        "ldi",
-        "mov",
-        "ld",
-        "str",
-        "xchg",
-        "psh",
-        "pshi",
-        "pop",
-        "pek",
-        "srm",
-        "swp",
-        "add",
-        "sub",
-        "mul",
-        "div",
-        "inc",
-        "dec",
-        "and",
-        "or",
-        "not",
-        "xor",
-        "shl",
-        "shr",
-        "rsl",
-        "rsr",
-        "cmp",
-        "jmp",
-        "jz",
-        "jnz",
-        "jgt",
-        "jlt",
-        "jge",
-        "jle",
-        "call",
-        "callr",
-        "ret",
-        "nop",
-        "hlt",
-        "wait",
-        "waiti",
-        "cont",
+    const std::vector<std::string> opcodes {
+        "ldi", "mov", "ld", "str", "xchg",
+        "psh", "pshi", "pop", "pek", "srmv",
+        "swp", "lea",
+        "add", "sub", "mul", "div", "inc", "dec",
+        "and", "or", "not", "xor",
+        "shl", "shr", "rsl", "rsr",
+        "cmp", "jmp", "jz", "jnz", "jgt", "jlt", "jge", "jle",
+        "call", "callr", "ret",
+        "nop", "hlt", "wait", "waiti", "cont"
     };
 };
 
@@ -59,13 +28,13 @@ int regAmount = 16;
 
 using byte = uint8_t;
 
-void emit8(std::vector<byte>& out, byte v) {
+void emit8(std::vector<uint8_t>& out, uint8_t v) {
     out.push_back(v);
 }
 
-void emit16(std::vector<byte>& out, uint16_t v) {
-    out.push_back(v & 0xFF);
-    out.push_back((v >> 8) & 0xFF);
+void emit16_be(std::vector<uint8_t>& out, uint16_t value) {
+    out.push_back((value >> 8) & 0xFF); // high byte
+    out.push_back(value & 0xFF);        // low byte
 }
 
 void pad_to_4(std::vector<byte>& out, size_t instr_start) {
@@ -159,43 +128,102 @@ bool is_integer(const std::string& s) {
     return true;
 }
 
-std::vector<uint8_t> tokenize(std::vector<std::string> code) {
-    std::unordered_map<std::string, uint8_t> labels;
+std::vector<uint8_t> tokenize(const std::vector<std::string>& code) {
+    std::unordered_map<std::string, uint16_t> labels; // byte addresses (0..65535 for safety)
     std::vector<uint8_t> out;
 
-    int idx = 0;
-    for (const std::string& s : code) {
-        if (!s.empty() && s.back() == ':') {
-            std::string label = s.substr(0, s.size() - 1);
-            std::cout << label << ": " << idx << std::endl;
-            labels[label] = idx * 4;
+    auto is_opcode = [](const std::string &s) {
+        return std::find(opcode::opcodes.begin(), opcode::opcodes.end(), s) != opcode::opcodes.end();
+    };
+
+    int instr_count = 0;
+    for (size_t i = 0; i < code.size(); ++i) {
+        const std::string &tok = code[i];
+        if (!tok.empty() && tok.back() == ':') {
+            std::string label = tok.substr(0, tok.size() - 1);
+            uint32_t addr = instr_count * 3; // byte address
+            if (addr > 0xFFFF) {
+                std::cerr << "Label address overflow for '" << label << "'\n";
+            }
+            labels[label] = static_cast<uint16_t>(addr);
+        } else if (is_opcode(tok)) {
+            ++instr_count;
         } else {
-            ++idx;
         }
     }
 
-    for (const std::string& s : code) {
-        if (!s.empty() && s.back() == ':') continue;
+    if (instr_count * 3 > 255) {
+        std::cerr << "Warning: program > 255 bytes; labels/addresses will wrap if stored in 8-bit.\n";
+    }
 
-        if (labels.find(s) != labels.end()) {
-            out.push_back(labels[s]);
-        } else {
-            auto it = std::find(opcode::opcodes.begin(), opcode::opcodes.end(), s);
-            int reg = parseRegisters(s);
-            if (it != opcode::opcodes.end()) {
-                out.push_back(std::distance(opcode::opcodes.begin(), it));
-            }
-            else if (is_integer(s)) {
-                out.push_back(to_int(s));
-            }
-            else if (reg != -1) {
-                out.push_back(reg);
-            }
-            else {
-                std::cerr << "Unknown symbol: " << s << std::endl;
-                out.push_back(-1);
-            }
+    for (size_t i = 0; i < code.size(); ) {
+        const std::string &tok = code[i];
+
+        if (!tok.empty() && tok.back() == ':') { ++i; continue; }
+
+        if (!is_opcode(tok)) {
+            std::cerr << "Unexpected token (not opcode or label): '" << tok << "' — skipping\n";
+            ++i;
+            continue;
         }
+
+        uint8_t opcode_byte = static_cast<uint8_t>(std::distance(opcode::opcodes.begin(),
+                                                                 std::find(opcode::opcodes.begin(), opcode::opcodes.end(), tok)));
+        out.push_back(opcode_byte);
+
+        int op1 = -1, op2 = -1;
+        size_t j = i + 1;
+        int taken = 0;
+        while (j < code.size() && taken < 2) {
+            const std::string &t = code[j];
+
+            if (!t.empty() && t.back() == ':') break;
+            if (is_opcode(t)) break;
+
+            int reg = parseRegisters(t);
+            if (reg != -1) {
+                if (taken == 0) op1 = reg;
+                else op2 = reg;
+                ++taken;
+                ++j;
+                continue;
+            }
+
+            auto lit = labels.find(t);
+            if (lit != labels.end()) {
+                uint16_t addr = lit->second;
+                if (addr > 255) {
+                    std::cerr << "Warning: label '" << t << "' address (" << addr << ") does not fit in 8 bits — truncating\n";
+                }
+                int truncated = static_cast<int>(addr & 0xFF);
+                if (taken == 0) op1 = truncated; else op2 = truncated;
+                ++taken;
+                ++j;
+                continue;
+            }
+
+            if (is_integer(t)) {
+                int v = to_int(t);
+                if (v < 0 || v > 255) {
+                    std::cerr << "Warning: immediate " << v << " out of 8-bit range — truncating to " << (v & 0xFF) << "\n";
+                }
+                int truncated = v & 0xFF;
+                if (taken == 0) op1 = truncated; else op2 = truncated;
+                ++taken;
+                ++j;
+                continue;
+            }
+
+            std::cerr << "Unknown operand '" << t << "' — encoding 0xFF\n";
+            if (taken == 0) op1 = 0xFF; else op2 = 0xFF;
+            ++taken;
+            ++j;
+        }
+
+        out.push_back(static_cast<uint8_t>(op1 >= 0 ? op1 : 0x00));
+        out.push_back(static_cast<uint8_t>(op2 >= 0 ? op2 : 0x00));
+
+        i = j;
     }
 
     return out;
@@ -272,6 +300,11 @@ int main(int argc, char** argv) {
     std::vector<std::string> temp = splitCode(removeComments(buf));
 
     std::vector<uint8_t> result = tokenize(temp);
+
+    std::ofstream outstream("out.bin", std::ios::binary);
+    outstream.write(reinterpret_cast<const char*>(result.data()), result.size());
+
+    outstream.close();
 
     for (int i: result) {
         std::cout << hex(i) << " ";
