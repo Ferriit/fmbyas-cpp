@@ -7,6 +7,7 @@
 #include <iostream>
 
 #define PC registers[0]
+#define SP registers[1]
 
 const int regAmount = 16;
 
@@ -86,6 +87,13 @@ namespace opcode {
     };
 }
 
+enum FlagBit {
+    ZERO_BIT = 0,    // Set if result is 0
+    CARRY_BIT = 1,   // Set if unsigned overflow occurs
+    SIGN_BIT = 2,    // Set if result is negative (MSB is 1)
+    OVERFLOW_BIT = 3 // Set if signed overflow occurs
+};
+
 
 std::vector<uint8_t> readBytes(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
@@ -152,13 +160,27 @@ std::string registerName(int idx) {
     return "???"; // invalid / does not exist
 }
 
-int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t> registers, std::vector<uint8_t> mem) {
-    bool running = true;
-    // register[0] = PC
 
-    std::copy(bytes.begin(), mem.end(), mem.begin());
+void setFlag(std::vector<uint16_t>& regs, FlagBit bit, bool condition) {
+    if (condition) {
+        regs[2] |= (1 << bit);  // Set bit to 1
+    } else {
+        regs[2] &= ~(1 << bit); // Clear bit to 0
+    }
+}
+
+bool getFlag(std::vector<uint16_t>& regs, FlagBit bit) {
+    return (regs[2] >> bit) & 1;
+}
+
+
+int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std::vector<uint8_t>& mem) {
+    bool running = true;
+
+    std::copy(bytes.begin(), bytes.end(), mem.begin());
 
     PC = 0;
+    SP = 65535; // memory amount - 2 bytes
     while (running) {
         uint8_t b = mem[PC];
         switch (b) {
@@ -171,13 +193,13 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t> registers, std:
             case (uint8_t)(opcode::eOpcode::MOV): {
                 int regB = (mem[PC + 1] << 8) | mem[PC + 2];
                 int regA = (mem[PC + 3] << 8) | mem[PC + 4];
-                registers[regA] = regB;
+                registers[regA] = registers[regB];
                 break;
             }
             case (uint8_t)(opcode::eOpcode::LD): {
                 int reg = (mem[PC + 1] << 8) | mem[PC + 2];
                 int addr = (mem[PC + 3] << 8) | mem[PC + 4];
-                registers[reg] = (mem[addr] << 8);
+                registers[reg] = (mem[addr] << 8) | mem[addr + 1];
                 break;
             }
             case (uint8_t)(opcode::eOpcode::STR): {
@@ -196,7 +218,187 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t> registers, std:
                 registers[regA] = regI;
                 break;
             }
+            case (uint8_t)(opcode::eOpcode::PSH): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                mem[SP]     = registers[reg] & 0x00FF;
+                mem[SP - 1] = (registers[reg] & 0xFF00) >> 8;
+                SP -= 2;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::PSHI): {
+                int val = (mem[PC + 1] << 8) | mem[PC + 2];
+                mem[SP] = val & 0x00FF;
+                mem[SP - 1] = (registers[val] & 0xFF00) >> 8;
+                SP -= 2;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::POP): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                registers[reg] = (mem[SP + 1] << 8) | mem[SP + 2];
+                mem[SP + 1] = 0;
+                mem[SP + 2] = 0;
+                SP += 2;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::PEK): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                registers[reg] = (mem[SP + 1] << 8) | mem[SP + 2];
+                SP += 2;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::SRMV): {
+                mem[SP + 1] = 0;
+                mem[SP + 2] = 0;
+                SP += 2;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::SWP): {
+                int addr = (mem[PC + 1] << 8) | mem[PC + 2];
+                int reg = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                uint16_t regI = registers[reg];
+                registers[reg] = mem[addr];
+                mem[addr] = regI;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::LEA): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                int addr = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[reg] = addr;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::ADD): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] + registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::SUB): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] - registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::MUL): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] * registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::DIV): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                if (regB != 0) {
+                    registers[regA] = registers[regA] / registers[regB];
+                }
+                else {
+                    registers[regA] = 0;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::INC): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                
+                registers[reg]++;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::DEC): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                
+                registers[reg]--;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::AND): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] & registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::OR): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] | registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::NOT): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                
+                registers[reg] = !registers[reg];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::XOR): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] ^ registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::SHL): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] << registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::SHR): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                registers[regA] = registers[regA] >> registers[regB];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::RSL): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                uint16_t val = registers[regA];
+                uint16_t shift = registers[regB] % 16;
+                
+                if (shift == 0) {
+                    registers[regA] = val;
+                } else {
+                    registers[regA] = (val << shift) | (val >> (16 - shift));
+                }
+                PC += 5;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::RSR): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                uint16_t val = registers[regA];
+                uint16_t shift = registers[regB] % 16;
+
+                if (shift == 0) {
+                    registers[regA] = val;
+                } else {
+                    registers[regA] = (val >> shift) | (val << (16 - shift));
+                }
+                PC += 5;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::CMP): {
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
+
+                uint16_t valA = registers[regA];
+                uint16_t valB = registers[regB];
+                uint16_t result = valA - valB;
+
+                setFlag(registers, ZERO_BIT, (result == 0));
+                setFlag(registers, SIGN_BIT, (result & 0x8000)); // Check 15th bit
+                setFlag(registers, CARRY_BIT, (valA < valB));    // Borrow occurred
+                break;
+            }
         }
+        PC += 5;
     }
 }
 
@@ -204,6 +406,7 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> bytes = readBytes("out.bin");
 
     std::vector<uint16_t> registers(10 + regAmount, 0);
+    std::vector<uint8_t> memory(65536);
 
     std::string OP = "";
 
