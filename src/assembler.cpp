@@ -10,6 +10,10 @@
 
 
 namespace opcode {
+    constexpr int NONE = 0;
+    constexpr int REG = 1;
+    constexpr int VAL = 2;
+
     const std::vector<std::string> opcodes {
         "ldi", "mov", "ld", "str", "xchg",
         "psh", "pshi", "pop", "pek", "srmv",
@@ -20,6 +24,51 @@ namespace opcode {
         "cmp", "jmp", "jz", "jnz", "jgt", "jlt", "jge", "jle",
         "call", "callr", "ret",
         "nop", "hlt", "wait", "waiti", "cont"
+    };
+
+    const std::unordered_map<std::string, std::vector<int>> operands {
+        {"ldi",   {REG, VAL}},
+        {"mov",   {REG, REG}},
+        {"ld",    {REG, VAL}},
+        {"str",   {VAL, REG}},
+        {"xchg",  {REG, REG}},
+        {"psh",   {REG, NONE}},
+        {"pshi",  {VAL, NONE}},
+        {"pop",   {REG, NONE}},
+        {"pek",   {REG, NONE}},
+        {"srmv",  {NONE, NONE}},
+        {"swp",   {VAL, REG}},
+        {"lea",   {REG, VAL}},
+        {"add",   {REG, REG}},
+        {"sub",   {REG, REG}},
+        {"mul",   {REG, REG}},
+        {"div",   {REG, REG}},
+        {"inc",   {REG, NONE}},
+        {"dec",   {REG, NONE}},
+        {"and",   {REG, REG}},
+        {"or",    {REG, REG}},
+        {"not",   {REG, NONE}},
+        {"xor",   {REG, REG}},
+        {"shl",   {REG, VAL}},
+        {"shr",   {REG, VAL}},
+        {"rsl",   {REG, VAL}},
+        {"rsr",   {REG, VAL}},
+        {"cmp",   {REG, REG}},
+        {"jmp",   {VAL, NONE}},
+        {"jz",    {VAL, NONE}},
+        {"jnz",   {VAL, NONE}},
+        {"jgt",   {VAL, NONE}},
+        {"jlt",   {VAL, NONE}},
+        {"jge",   {VAL, NONE}},
+        {"jle",   {VAL, NONE}},
+        {"call",  {VAL, NONE}},
+        {"callr", {REG, NONE}},
+        {"ret",   {NONE, NONE}},
+        {"nop",   {NONE, NONE}},
+        {"hlt",   {NONE, NONE}},
+        {"wait",  {REG, NONE}},
+        {"waiti", {VAL, NONE}},
+        {"cont",  {NONE, NONE}}
     };
 };
 
@@ -74,44 +123,35 @@ int to_int(const std::string& s) {
 }
 
 int parseRegisters(std::string regName) {
-    // pc:          0
-    // stackptr:    1
-    // io0 - io7:   2 - 9
-    // r0 - rn:     10 - n + 10
-    // n = max(regAmount, 245)
+    if (regName == "pc") return 0;
+    if (regName == "stackptr") return 1;
+    if (regName == "flags") return 2;
 
-    if (regName == "pc") {
-        return 0;
+    // Handle io0 - io7 (Indices 3 - 10)
+    if (regName.size() >= 3 && regName.substr(0, 2) == "io") {
+        try {
+            int num = std::stoi(regName.substr(2));
+            if (num >= 0 && num <= 7) {
+                return num + 3; // Offset by 3 (pc, sp, flags)
+            }
+        } catch (...) {}
+        std::cerr << "Invalid IO register: " << regName << std::endl;
+        return -1;
     }
 
-    if (regName == "stackptr") {
-        return 1;
+    // Handle r0 - rn (Indices 11 - n+11)
+    if (regName.size() >= 2 && regName[0] == 'r') {
+        try {
+            int num = std::stoi(regName.substr(1));
+            int idx = num + 11; // Offset by 11 (pc, sp, flags, 8 io regs)
+            if (num >= 0 && idx < 11 + regAmount) {
+                return idx;
+            }
+        } catch (...) {}
+        std::cerr << "Invalid register: " << regName << std::endl;
+        return -1;
     }
 
-    if (regName.substr(0, 2) == "io") {
-        if (regName.size() > 3) {
-            std::cerr << "Invalid register name: '" << regName << "'" << std::endl;
-            return -1;
-        }
-        std::string regStr(1, regName[2]);
-        int num = to_int(regStr) + 2;
-        if (num > 9) {
-            std::cerr << "Invalid register name: '" << regName << "'" << std::endl;
-            return -1;
-        }
-        return num;
-    }
-    if (regName[0] == 'r') {
-        std::string regStr = regName.substr(1); // remove 'r'
-        int num = to_int(regStr) + 10;
-    
-        if (num < 10 || num >= regAmount + 10)
-            return -1;
-    
-        return num;
-    }
-
-    //std::cerr << "Invalid register name: '" << regName << "'" << std::endl;
     return -1;
 }
 
@@ -137,57 +177,52 @@ std::vector<uint8_t> tokenize(const std::vector<std::string>& code) {
     };
 
     int instr_count = 0;
-    for (size_t i = 0; i < code.size(); ++i) {
-        const std::string &tok = code[i];
-        if (!tok.empty() && tok.back() == ':') {
+    for (const auto& tok : code) {
+        if (tok.empty()) continue;
+        if (tok.back() == ':') {
             labels[tok.substr(0, tok.size() - 1)] = static_cast<uint16_t>(instr_count * 5);
         } else if (is_opcode(tok)) {
-            ++instr_count;
+            instr_count++;
         }
     }
 
-    for (size_t i = 0; i < code.size(); ) {
+    for (size_t i = 0; i < code.size(); ++i) {
         const std::string &tok = code[i];
-        if (!tok.empty() && tok.back() == ':') { ++i; continue; }
-        if (!is_opcode(tok)) { ++i; continue; }
+        if (tok.empty() || tok.back() == ':') continue;
 
-        // Write Opcode (1 byte)
-        uint8_t op_idx = static_cast<uint8_t>(std::distance(opcode::opcodes.begin(),
-                                              std::find(opcode::opcodes.begin(), opcode::opcodes.end(), tok)));
-        out.push_back(op_idx);
+        if (is_opcode(tok)) {
+            uint8_t op_idx = static_cast<uint8_t>(std::distance(opcode::opcodes.begin(),
+                                                  std::find(opcode::opcodes.begin(), opcode::opcodes.end(), tok)));
+            out.push_back(op_idx);
 
-        int32_t op1 = 0, op2 = 0;
-        size_t j = i + 1;
-        int taken = 0;
+            const std::vector<int>& requirements = opcode::operands.at(tok);
+            uint16_t ops[2] = {0, 0};
 
-        while (j < code.size() && taken < 2) {
-            const std::string &t = code[j];
-            if (!t.empty() && t.back() == ':') break;
-            if (is_opcode(t)) break;
-
-            // Try Register
-            int reg = parseRegisters(t);
-            if (reg != -1) {
-                if (taken == 0) op1 = reg; else op2 = reg;
-            } 
-            // Try Label
-            else if (labels.count(t)) {
-                if (taken == 0) op1 = labels[t]; else op2 = labels[t];
+            for (int step = 0; step < 2; ++step) {
+                if (requirements[step] != opcode::NONE) {
+                    i++; 
+                    if (i < code.size()) {
+                        const std::string &operand_tok = code[i];
+                        
+                        int reg = parseRegisters(operand_tok);
+                        if (reg != -1) {
+                            ops[step] = static_cast<uint16_t>(reg);
+                        } else if (labels.count(operand_tok)) {
+                            ops[step] = labels[operand_tok];
+                        } else {
+                            try {
+                                ops[step] = static_cast<uint16_t>(std::stoi(operand_tok));
+                            } catch (...) { ops[step] = 0; }
+                        }
+                    }
+                } else {
+                    ops[step] = 0;
+                }
             }
-            // Try Immediate
-            else if (is_integer(t)) {
-                int v = std::stoi(t);
-                if (taken == 0) op1 = v; else op2 = v;
-            }
 
-            taken++;
-            j++;
+            emit16_be(out, ops[0]);
+            emit16_be(out, ops[1]);
         }
-
-        emit16_be(out, static_cast<uint16_t>(op1));
-        emit16_be(out, static_cast<uint16_t>(op2));
-
-        i = j;
     }
     return out;
 }

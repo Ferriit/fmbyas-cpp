@@ -8,6 +8,7 @@
 
 #define PC registers[0]
 #define SP registers[1]
+#define FLAGS registers[2]
 
 const int regAmount = 16;
 
@@ -155,8 +156,9 @@ std::string hex(int n) {
 std::string registerName(int idx) {
     if (idx == 0) return "pc";
     if (idx == 1) return "stackptr";
-    if (idx >= 2 && idx <= 9) return "io" + std::to_string(idx - 2);
-    if (idx >= 10 && idx < 10 + regAmount) return "r" + std::to_string(idx - 10);
+    if (idx == 2) return "flags";
+    if (idx >= 3 && idx <= 10) return "io" + std::to_string(idx - 3);
+    if (idx >= 11 && idx < 11 + regAmount) return "r" + std::to_string(idx - 10);
     return "???"; // invalid / does not exist
 }
 
@@ -179,10 +181,17 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
 
     std::copy(bytes.begin(), bytes.end(), mem.begin());
 
+    int freeze = 0;
+
     PC = 0;
     SP = 65535; // memory amount - 2 bytes
     while (running) {
         uint8_t b = mem[PC];
+        if (freeze > 0) {
+            freeze--;
+            goto skip;
+        }
+
         switch (b) {
             case (uint8_t)(opcode::eOpcode::LDI): {
                 int reg = (mem[PC + 1] << 8) | mem[PC + 2];
@@ -397,9 +406,83 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 setFlag(registers, CARRY_BIT, (valA < valB));    // Borrow occurred
                 break;
             }
+            case (uint8_t)(opcode::eOpcode::JMP): {
+                int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                PC = val - 5;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JZ): {
+                if (getFlag(registers, FlagBit::ZERO_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JNZ): {
+                if (!getFlag(registers, FlagBit::ZERO_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JGT): {
+                if (!getFlag(registers, FlagBit::SIGN_BIT) && !getFlag(registers, FlagBit::ZERO_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JLT): {
+                if (getFlag(registers, FlagBit::SIGN_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JGE): {
+                if (!getFlag(registers, FlagBit::SIGN_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::JLE): {
+                if (getFlag(registers, FlagBit::SIGN_BIT) && getFlag(registers, FlagBit::ZERO_BIT)) {
+                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
+
+                    PC = val - 5;
+                }
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::NOP): {
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::HLT): {
+                running = false;
+            }
+            case (uint8_t)(opcode::eOpcode::WAIT): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                
+                freeze = registers[reg];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::WAITI): {
+                int val = (mem[PC + 1] << 8) | mem[PC + 2];
+                
+                freeze = val;
+                break;
+            }
         }
         PC += 5;
+        skip:
     }
+    return 0;
 }
 
 int main(int argc, char** argv) {
@@ -431,5 +514,9 @@ int main(int argc, char** argv) {
     
         i++;
     }
+
+    runProgram(bytes, registers, memory);
+    std::cout << registers[0x03] << std::endl;
+
     return 0;
 }

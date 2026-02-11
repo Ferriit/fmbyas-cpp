@@ -56,10 +56,10 @@ RET = Returns execution from the last caller                        (ret)
 ### Misc:
 ```
 NOP = No-op. Doesn't do anything                                    (nop)
-HLT = Halts execution until resume button is pressed                (hlt)
+HLT = Halts execution                                               (hlt)
 WAIT = Halts for the amount of cycles described by a register       (wait [register])
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
-CONT = Continue execution in RAM                                    (cont)
+CONT = Continue execution in RAM                                    (cont) (Compiles, but doesn't run in FMBYAS-2)
 ```
 
 ## REGISTERS:
