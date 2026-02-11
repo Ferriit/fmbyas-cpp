@@ -162,6 +162,39 @@ std::string registerName(int idx) {
     return "???"; // invalid / does not exist
 }
 
+int parseRegisters(std::string regName) {
+    if (regName == "pc") return 0;
+    if (regName == "stackptr") return 1;
+    if (regName == "flags") return 2;
+
+    // Handle io0 - io7 (Indices 3 - 10)
+    if (regName.size() >= 3 && regName.substr(0, 2) == "io") {
+        try {
+            int num = std::stoi(regName.substr(2));
+            if (num >= 0 && num <= 7) {
+                return num + 3; // Offset by 3 (pc, sp, flags)
+            }
+        } catch (...) {}
+        std::cerr << "Invalid IO register: " << regName << std::endl;
+        return -1;
+    }
+
+    // Handle r0 - rn (Indices 11 - n+11)
+    if (regName.size() >= 2 && regName[0] == 'r') {
+        try {
+            int num = std::stoi(regName.substr(1));
+            int idx = num + 11; // Offset by 11 (pc, sp, flags, 8 io regs)
+            if (num >= 0 && idx < 11 + regAmount) {
+                return idx;
+            }
+        } catch (...) {}
+        std::cerr << "Invalid register: " << regName << std::endl;
+        return -1;
+    }
+
+    
+    return -1;
+}
 
 void setFlag(std::vector<uint16_t>& regs, FlagBit bit, bool condition) {
     if (condition) {
@@ -200,8 +233,8 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 break;
             }
             case (uint8_t)(opcode::eOpcode::MOV): {
-                int regB = (mem[PC + 1] << 8) | mem[PC + 2];
-                int regA = (mem[PC + 3] << 8) | mem[PC + 4];
+                int regA = (mem[PC + 1] << 8) | mem[PC + 2];
+                int regB = (mem[PC + 3] << 8) | mem[PC + 4];
                 registers[regA] = registers[regB];
                 break;
             }
@@ -375,7 +408,6 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 } else {
                     registers[regA] = (val << shift) | (val >> (16 - shift));
                 }
-                PC += 5;
                 break;
             }
             case (uint8_t)(opcode::eOpcode::RSR): {
@@ -390,7 +422,6 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 } else {
                     registers[regA] = (val >> shift) | (val << (16 - shift));
                 }
-                PC += 5;
                 break;
             }
             case (uint8_t)(opcode::eOpcode::CMP): {
@@ -465,6 +496,7 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
             }
             case (uint8_t)(opcode::eOpcode::HLT): {
                 running = false;
+                break;
             }
             case (uint8_t)(opcode::eOpcode::WAIT): {
                 int reg = (mem[PC + 1] << 8) | mem[PC + 2];
@@ -482,8 +514,10 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
         PC += 5;
         skip:
     }
+    std::cout << registers[parseRegisters("io0")] << std::endl;
     return 0;
 }
+
 
 int main(int argc, char** argv) {
     std::vector<uint8_t> bytes = readBytes("out.bin");
@@ -493,6 +527,8 @@ int main(int argc, char** argv) {
 
     std::string OP = "";
 
+    int lookup[5] = {-1, 0, 0, 1, 1};
+
     int i = 0;
     for (uint8_t b: bytes) {
         std::cout << hex(b);
@@ -500,14 +536,17 @@ int main(int argc, char** argv) {
             OP = opcode::opcodes[b];
             std::cout << "\x1b[38;5;231;1m\t" << opcode::opcodes[b] << "\x1b[0m";
         }
-        else if (opcode::operands.at(OP)[(i % 3) - 1] == opcode::REG) {
-            std::cout << "\x1b[38;5;204m\t" << registerName(b) << "\x1b[0m";
+        else if (opcode::operands.at(OP)[lookup[i % 5]] == opcode::VAL) {
+            std::cout << "\x1b[38;5;214m\t" << (int)b << "\x1b[0m";
         }
-        else if (opcode::operands.at(OP)[(i % 3) - 1] == opcode::VAL) {
-            std::cout << "\x1b[38;5;214m\t" << (int)b << " (" << (char)b << ")\x1b[0m";
+        else if (opcode::operands.at(OP)[lookup[i % 5]] == opcode::REG && !((i % 5) % 2)) {
+            std::cout << "\x1b[38;5;204m\t" << registerName(b + (bytes[i - 1] << 8)) << "\x1b[0m";
+        }
+        else if (opcode::operands.at(OP)[lookup[i % 5]] == opcode::REG && ((i % 5) % 2)) {
+
         }
         else {
-            std::cout << "\x1b[38;5;232;48;5;252;1m\tnil\x1b[0m";
+            std::cout << "\x1b[1m\tnil\x1b[0m";
         }
 
         std::cout << std::endl;
@@ -516,7 +555,6 @@ int main(int argc, char** argv) {
     }
 
     runProgram(bytes, registers, memory);
-    std::cout << registers[0x03] << std::endl;
 
     return 0;
 }
