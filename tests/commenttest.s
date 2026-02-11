@@ -1,6 +1,6 @@
 _start:
-    ldi r0, 150
-    ldi r1, 670
+    ldi r0, 49
+    ldi r1, 48
     add r0, r1
     mov io0, r0         ; Result is now displayed from io0
 

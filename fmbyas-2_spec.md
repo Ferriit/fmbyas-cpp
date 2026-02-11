@@ -6,7 +6,7 @@
 ### Register and Memory Control:
 ```
 LDI = Load immediate into register                                  (ldi [register] [value])
-MOV = Move value from register A to B                               (mov [register] [register])
+MOV = Move value from register A to B                               (mov [register B] [register A])
 LD = Load value from RAM into register                              (ld [register] [addr])
 STR = Store value from register into RAM                            (str [addr] [register])
 XCHG = Swaps the contents of two registers                          (xchg [register] [register])
