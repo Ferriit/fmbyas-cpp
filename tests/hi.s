@@ -7,8 +7,8 @@ str 0xAA02, r0    ; y = 0, x = 1
 ldi r2, 80        ; comparison value
 ldi r1, 0x0       ; counter
 
-mov r4, stackptr
-ldi stackptr, 47518
+mov r4, sp
+ldi sp, 47518
 
 loop:
     pshi 0x0120    ; Push the immediate 0x120 (high 1 + ' ')

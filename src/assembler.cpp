@@ -124,7 +124,7 @@ int to_int(const std::string& s) {
 
 int parseRegisters(std::string regName) {
     if (regName == "pc") return 0;
-    if (regName == "stackptr") return 1;
+    if (regName == "sp") return 1;
     if (regName == "flags") return 2;
 
     // Handle io0 - io7 (Indices 3 - 10)
