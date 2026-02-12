@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cstdint>
 #include <iostream>
+#include <ncurses.h>
 
 #define PC registers[0]
 #define SP registers[1]
@@ -525,11 +526,21 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 freeze = val;
                 break;
             }
+
+        }
+        for (int y = 0; y < 25; y++) {
+            for (int x = 0; x < 80; x++) {
+                int addr = 0xAA00 + 2 * (x + y * 80);
+                char c = (char)mem[addr + 1];
+                if (c < 32 || c > 126) c = ' ';
+                mvaddch(y, x, (unsigned char)c);
+            }
         }
         PC += 5;
         skip:
+        refresh();
     }
-    std::cout << registers[parseRegisters("io0")] << std::endl;
+    // std::cout << registers[parseRegisters("io0")] << std::endl;
     return 0;
 }
 
@@ -569,7 +580,15 @@ int main(int argc, char** argv) {
         i++;
     }
 
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+
     runProgram(bytes, registers, memory);
+
+    endwin();
+
 
     return 0;
 }
