@@ -35,13 +35,11 @@ str 47364, r0
 ldi r0, 0x0153
 str 47366, r0
 
-
-ldi r2, 0x0       ; zero comparison value
-ldi r1, 0x8000    ; counter
-
+ldi r0, 0x8000
+ldi r1, 0
 hltloop:
-    dec r1
-    cmp r1, r2
+    dec r0
+    cmp r0, r1
     jnz hltloop
 
 hlt

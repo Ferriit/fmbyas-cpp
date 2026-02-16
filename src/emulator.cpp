@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <iostream>
 #include <ncurses.h>
+#include <thread>
+#include <chrono>
 
 #define PC registers[0]
 #define SP registers[1]
@@ -13,6 +15,7 @@
 
 const int regAmount = 16;
 
+bool running = true;
 
 namespace opcode {
     constexpr int NONE = 0;
@@ -212,16 +215,83 @@ bool getFlag(std::vector<uint16_t>& regs, FlagBit bit) {
 }
 
 
-int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std::vector<uint8_t>& mem) {
-    bool running = true;
+uint16_t pollKey() {
+    int ch = getch();
 
+    if (ch == ERR) return 0;
+
+    uint8_t counter = 0x00;
+    uint8_t keycode = 0;
+
+    switch(ch) {
+        case KEY_UP:    keycode = 17; break;
+        case KEY_DOWN:  keycode = 18; break;
+        case KEY_LEFT:  keycode = 19; break;
+        case KEY_RIGHT: keycode = 20; break;
+        case KEY_BACKSPACE: keycode = 8; break;
+        case KEY_DC:    keycode = 127; break;
+        case 9:        keycode = 9; break;
+        case 10:       keycode = 10; break;
+        case 27:       keycode = 27; break;
+        case 32:       keycode = 32; break;
+        default:
+            keycode = (uint8_t) ch;
+            break;
+    }
+
+    return (counter << 8) | keycode;
+}
+
+
+int drawScreen(std::vector<uint8_t>& mem) {
+    while (running) {
+        for (int y = 0; y < 25; y++) {
+            for (int x = 0; x < 80; x++) {
+                int addr = 0xAA00 + 2 * (x + y * 80);
+                char c = (char)mem[addr + 1];
+                if (c < 32 || c > 126) c = ' ';
+
+                int col = mem[addr];
+
+                attrset(A_NORMAL);
+                if (col) {
+                    attron(COLOR_PAIR(1));
+                }
+
+                mvaddch(y, x, (unsigned char)c);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));
+    }
+    return 0;
+}
+
+
+int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std::vector<uint8_t>& mem) {
     std::copy(bytes.begin(), bytes.end(), mem.begin());
 
+    int cycleCount = 0;
+
     int freeze = 0;
+
+    int oldChr = 0x0;
+    int chr = 0x0;
+    int io7 = parseRegisters("io7");
 
     PC = 0;
     SP = 65535; // memory amount - 2 bytes
     while (running) {
+         int tmpChr = pollKey();
+        bool keyChange = false; 
+        if (tmpChr != 0) {
+            if (registers[io7] & 0x0200) {
+               chr = tmpChr;
+                keyChange = true; 
+            }
+        }
+
+        if (registers[io7] > 511) registers[io7] = chr | (keyChange << 8);
+
         uint8_t b = mem[PC];
         if (freeze > 0) {
             freeze--;
@@ -256,15 +326,15 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
             }
             case (uint8_t)(opcode::eOpcode::RLD): {
                 int reg = (mem[PC + 1] << 8) | mem[PC + 2];
-                int addrreg = (mem[PC + 3] << 8) | mem[PC + 4];
-                registers[reg] = (mem[registers[addrreg]] << 8) | mem[registers[addrreg] + 1];
+                int addr = (mem[PC + 3] << 8) | mem[PC + 4];
+                registers[reg] = (mem[registers[addr]] << 8) | mem[addr + 1];
                 break;
             }
             case (uint8_t)(opcode::eOpcode::RSTR): {
-                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
-                int addrreg = (mem[PC + 3] << 8) | mem[PC + 4];
-                mem[registers[addrreg]] = (registers[reg] & 0xFF00) >> 8;
-                mem[registers[addrreg] + 1] = (registers[reg] & 0x00FF);
+                int addr = (mem[PC + 1] << 8) | mem[PC + 2];
+                int reg = (mem[PC + 3] << 8) | mem[PC + 4];
+                mem[registers[addr]] = (registers[reg] & 0xFF00) >> 8;
+                mem[registers[addr] + 1] = registers[reg] & 0x00FF;
                 break;
             }
             case (uint8_t)(opcode::eOpcode::XCHG): {
@@ -543,28 +613,12 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
             }
 
         }
-        for (int y = 0; y < 25; y++) {
-            for (int x = 0; x < 80; x++) {
-                int addr = 0xAA00 + 2 * (x + y * 80);
-                char c = (char)mem[addr + 1];
-                if (c < 32 || c > 126) c = ' ';
-
-                int col = mem[addr];
-
-                attrset(A_NORMAL);
-                if (col) {
-                    attron(COLOR_PAIR(1));
-                }
-
-                mvaddch(y, x, (unsigned char)c);
-            }
-        }
         PC += 5;
         skip:
-        refresh();
+        cycleCount++;
     }
     // std::cout << registers[parseRegisters("io0")] << std::endl;
-    return 0;
+    return cycleCount;
 }
 
 
@@ -616,13 +670,25 @@ int main(int argc, char** argv) {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+    nodelay(stdscr, TRUE);
 
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
 
-    runProgram(bytes, registers, memory);
+    std::thread renderer(drawScreen, std::ref(memory));
+
+    auto start = std::chrono::high_resolution_clock::now();
+    int cycles = runProgram(bytes, registers, memory);
+    auto end = std::chrono::high_resolution_clock::now();
+
+    running = false;
+
+    renderer.join();
+
+    std::chrono::duration<double, std::milli> duration = end - start;
 
     endwin();
 
+    std::cout << "CPU ran at " << duration.count() / cycles * 1000.0 << "CPS" << std::endl;
 
     return 0;
 }

@@ -1,5 +1,4 @@
 # FMBYAS
-### (Pronounced "Femboy Ass")
 ## Formattable Multi-architecture Based Yield Assembly
 
 ## OPCODES:
@@ -133,3 +132,20 @@ CONT = Continue execution in RAM                                    (cont)
  - When printing to the screen, an ascii character should be put in the low bits of a register and write to memory location 0xAA00 + 2 * (x + y * 80).
  - The screen size should be 80x25.
 
+### Keyboard:
+ - Keyboard input is handled through io7.
+ - The high byte is what the CPU writes to to get input from the keyboard. It fetches the most current keypress. This makes the emulator completely overwrite the io7 register. The outputted value has to be greater than 511 and the first bit of the high byte represents whether or not the key has updated since last request.
+ - The low byte represents the key being pressed. Follows ASCII for most characters, but some don't.
+ - All keycodes are returned as their ASCII codes and are modified depending on Shift (a (97) + [SHIFT] -> A (65), 1 (49) + [SHIFT] -> ! (32)) except the following list.
+```
+[BACKSPACE] - 8
+[TAB] - 9
+[RETURN] - 10
+[ARROWUP] - 17
+[ARROWDOWN] - 18
+[ARROWLEFT] - 19
+[ARROWRIGHT] - 20
+[ESCAPE] - 27
+[SPACE] - 32
+[DEL] - 127
+```
