@@ -15,7 +15,7 @@ namespace opcode {
     constexpr int VAL = 2;
 
     const std::vector<std::string> opcodes {
-        "ldi", "mov", "ld", "str", "xchg",
+        "ldi", "mov", "ld", "str", "rld", "rstr", "xchg",
         "psh", "pshi", "pop", "pek", "srmv",
         "swp", "lea",
         "add", "sub", "mul", "div", "inc", "dec",
@@ -26,11 +26,25 @@ namespace opcode {
         "nop", "hlt", "wait", "waiti", "cont"
     };
 
+    enum class eOpcode : uint8_t {
+        LDI, MOV, LD, STR, RLD, RSTR, XCHG,
+        PSH, PSHI, POP, PEK, SRMV,
+        SWP, LEA,
+        ADD, SUB, MUL, DIV, INC, DEC,
+        AND, OR, NOT, XOR,
+        SHL, SHR, RSL, RSR,
+        CMP, JMP, JZ, JNZ, JGT, JLT, JGE, JLE,
+        CALL, CALLR, RET,
+        NOP, HLT, WAIT, WAITI, CONT
+    };
+  
     const std::unordered_map<std::string, std::vector<int>> operands {
         {"ldi",   {REG, VAL}},
         {"mov",   {REG, REG}},
         {"ld",    {REG, VAL}},
         {"str",   {VAL, REG}},
+        {"rld", {REG, REG}},
+        {"rstr", {REG, REG}},
         {"xchg",  {REG, REG}},
         {"psh",   {REG, NONE}},
         {"pshi",  {VAL, NONE}},
@@ -70,7 +84,7 @@ namespace opcode {
         {"waiti", {VAL, NONE}},
         {"cont",  {NONE, NONE}}
     };
-};
+}
 
 int regAmount = 16;
 

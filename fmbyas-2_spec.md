@@ -9,6 +9,8 @@ LDI = Load immediate into register                                  (ldi [regist
 MOV = Move value from register A to B                               (mov [register B] [register A])
 LD = Load value from RAM into register                              (ld [register] [addr])
 STR = Store value from register into RAM                            (str [addr] [register])
+RLD = Load value from RAM address stored in register into register  (rld [register] [register])
+RSTR = Store value from register to RAM address stored in register  (rstr [register] [register])
 XCHG = Swaps the contents of two registers                          (xchg [register] [register])
 PSH = Pushes a register value onto the stack                        (psh [register])
 PSHI = Pushes an immediate value onto the stack                     (pshi [value])
@@ -61,6 +63,7 @@ WAIT = Halts for the amount of cycles described by a register       (wait [regis
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
 CONT = Continue execution in RAM                                    (cont) (Compiles, but doesn't run in FMBYAS-2)
 ```
+- All instructions follow the format `OPCODE <DEST> <SRC>`
 
 ## REGISTERS:
 ```

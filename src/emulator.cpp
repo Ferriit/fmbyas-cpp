@@ -20,7 +20,7 @@ namespace opcode {
     constexpr int VAL = 2;
 
     const std::vector<std::string> opcodes {
-        "ldi", "mov", "ld", "str", "xchg",
+        "ldi", "mov", "ld", "str", "rld", "rstr", "xchg",
         "psh", "pshi", "pop", "pek", "srmv",
         "swp", "lea",
         "add", "sub", "mul", "div", "inc", "dec",
@@ -32,7 +32,7 @@ namespace opcode {
     };
 
     enum class eOpcode : uint8_t {
-        LDI, MOV, LD, STR, XCHG,
+        LDI, MOV, LD, STR, RLD, RSTR, XCHG,
         PSH, PSHI, POP, PEK, SRMV,
         SWP, LEA,
         ADD, SUB, MUL, DIV, INC, DEC,
@@ -48,6 +48,8 @@ namespace opcode {
         {"mov",   {REG, REG}},
         {"ld",    {REG, VAL}},
         {"str",   {VAL, REG}},
+        {"rld", {REG, REG}},
+        {"rstr", {REG, REG}},
         {"xchg",  {REG, REG}},
         {"psh",   {REG, NONE}},
         {"pshi",  {VAL, NONE}},
@@ -249,7 +251,20 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 int addr = (mem[PC + 1] << 8) | mem[PC + 2];
                 int reg = (mem[PC + 3] << 8) | mem[PC + 4];
                 mem[addr] = (registers[reg] & 0xFF00) >> 8;
-                mem[addr + 1] = registers[reg] &0x00FF;
+                mem[addr + 1] = registers[reg] & 0x00FF;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::RLD): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                int addrreg = (mem[PC + 3] << 8) | mem[PC + 4];
+                registers[reg] = (mem[registers[addrreg]] << 8) | mem[registers[addrreg] + 1];
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::RSTR): {
+                int reg = (mem[PC + 1] << 8) | mem[PC + 2];
+                int addrreg = (mem[PC + 3] << 8) | mem[PC + 4];
+                mem[registers[addrreg]] = (registers[reg] & 0xFF00) >> 8;
+                mem[registers[addrreg] + 1] = (registers[reg] & 0x00FF);
                 break;
             }
             case (uint8_t)(opcode::eOpcode::XCHG): {

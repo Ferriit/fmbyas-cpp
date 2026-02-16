@@ -7,11 +7,17 @@ str 0xAA02, r0    ; y = 0, x = 1
 ldi r2, 80        ; comparison value
 ldi r1, 0x0       ; counter
 
-mov r4, sp
-ldi sp, 47518
+; mov r4, sp
+; ldi sp, 47518
+
+ldi r4, 47518
+ldi r5, 0x0120
 
 loop:
-    pshi 0x0120    ; Push the immediate 0x120 (high 1 + ' ')
+    rstr r4, r5     ; Push the immediate 0x120 (high 1 + ' ')
+    dec r4          ; decrease r4 by two
+    dec r4
+
     inc r1
     cmp r1, r2
     jnz loop
