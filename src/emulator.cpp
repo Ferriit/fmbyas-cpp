@@ -170,39 +170,37 @@ std::string registerName(int idx) {
     return "???"; // invalid / does not exist
 }
 
-int parseRegisters(std::string regName) {
+int parseRegisters(const std::string& regName) {
     if (regName == "pc") return 0;
     if (regName == "sp") return 1;
     if (regName == "flags") return 2;
 
-    // Handle io0 - io7 (Indices 3 - 10)
-    if (regName.size() >= 3 && regName.substr(0, 2) == "io") {
+    if (regName.size() >= 3 && regName.substr(0,2) == "io") {
         try {
             int num = std::stoi(regName.substr(2));
             if (num >= 0 && num <= 7) {
-                return num + 3; // Offset by 3 (pc, sp, flags)
+                return num + 3; // offset after pc, sp, flags
             }
         } catch (...) {}
         std::cerr << "Invalid IO register: " << regName << std::endl;
         return -1;
     }
 
-    // Handle r0 - rn (Indices 11 - n+11)
     if (regName.size() >= 2 && regName[0] == 'r') {
         try {
             int num = std::stoi(regName.substr(1));
-            int idx = num + 11; // Offset by 11 (pc, sp, flags, 8 io regs)
-            if (num >= 0 && idx < 11 + regAmount) {
-                return idx;
+            if (num >= 0 && num < regAmount) {
+                return num + 11; // offset after pc, sp, flags, io0-7
             }
         } catch (...) {}
-        std::cerr << "Invalid register: " << regName << std::endl;
+        std::cerr << "Invalid general-purpose register: " << regName << std::endl;
         return -1;
     }
 
-    
+    std::cerr << "Unknown register: " << regName << std::endl;
     return -1;
 }
+
 
 void setFlag(std::vector<uint16_t>& regs, FlagBit bit, bool condition) {
     if (condition) {
