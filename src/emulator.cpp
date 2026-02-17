@@ -8,12 +8,14 @@
 #include <ncurses.h>
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 #define PC registers[0]
 #define SP registers[1]
 #define FLAGS registers[2]
 
-const int regAmount = 16;
+int regAmount = 16;
+int keyPollingRate = 1000;
 
 bool running = true;
 
@@ -285,7 +287,7 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
     PC = 0;
     SP = 65535; // memory amount - 2 bytes
     while (running) {
-         if (cycleCount % 1000 == 0) {
+         if (cycleCount % keyPollingRate == 0) {
             oldChr = tmpChr;
             tmpChr = pollKey();
 
@@ -634,6 +636,15 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
 
 
 int main(int argc, char** argv) {
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], "--polling")) {
+            keyPollingRate = to_int(argv[i + 1]);
+        }
+        else if (!strcmp(argv[i], "--registers")) {
+            regAmount = to_int(argv[i + 1]);
+        }
+    }
+
     std::vector<uint8_t> bytes = readBytes("out.bin");
 
     std::vector<uint16_t> registers(10 + regAmount, 0);
@@ -695,11 +706,11 @@ int main(int argc, char** argv) {
 
     renderer.join();
 
-    std::chrono::duration<double, std::milli> duration = end - start;
+    std::chrono::duration<double> duration = end - start;
 
     endwin();
 
-    std::cout << "CPU ran at " << cycles / (duration.count() * 1000.0) << "CPS" << std::endl;
+    std::cout << "CPU ran at " << cycles / duration.count() / 1000000 << "MHz" << std::endl;
 
     return 0;
 }
