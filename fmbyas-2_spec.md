@@ -149,3 +149,7 @@ CONT = Continue execution in RAM                                    (cont)
 [SPACE] - 32
 [DEL] - 127
 ```
+
+### Arguments:
+- `--polling` - The polling rate of the keyboard (1000 means once every 1000 cycles). 1000 is the standard value.
+- `--registers` - Sets the amount of general purpose registers (2 allows for r0, r1. 16 for r0 - r15, 32 for r0 - r31...). The standard value is 16.
