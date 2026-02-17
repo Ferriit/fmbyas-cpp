@@ -274,23 +274,34 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
 
     int freeze = 0;
 
-    int oldChr = 0x0;
-    int chr = 0x0;
+    int oldChr = 0;
+
+    int chr = 0;
     int io7 = parseRegisters("io7");
+    int keyRequests = 0;
+
+    int tmpChr = 0x0;
 
     PC = 0;
     SP = 65535; // memory amount - 2 bytes
     while (running) {
-         int tmpChr = pollKey();
-        bool keyChange = false; 
+         if (cycleCount % 1000 == 0) {
+            oldChr = tmpChr;
+            tmpChr = pollKey();
+
+            if (oldChr != tmpChr) keyRequests = 0;
+        }
+
         if (tmpChr != 0) {
             if (registers[io7] & 0x0200) {
-               chr = tmpChr;
-                keyChange = true; 
+                chr = tmpChr;
+                keyRequests++;
             }
         }
 
-        if (registers[io7] > 511) registers[io7] = chr | (keyChange << 8);
+        // cycle 1: keyRequests = 1
+
+        if (registers[io7] > 511) registers[io7] = chr | ((keyRequests == 1) << 8); 
 
         uint8_t b = mem[PC];
         if (freeze > 0) {
@@ -688,7 +699,7 @@ int main(int argc, char** argv) {
 
     endwin();
 
-    std::cout << "CPU ran at " << duration.count() / cycles * 1000.0 << "CPS" << std::endl;
+    std::cout << "CPU ran at " << cycles / (duration.count() * 1000.0) << "CPS" << std::endl;
 
     return 0;
 }
