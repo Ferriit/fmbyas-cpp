@@ -166,3 +166,6 @@ TJF = Toggles the fj flag between 0 and 1                           (tjf)
 ## Assembler spec:
 - Always has to take in the file as the first argument.
 - `-r` is the second argument and if it's present, it makes the assembler start with relative jumping instead of absolute.
+- The assembler should always insert a `jmp _start` instruction before everything else to make sure it starts at the right spot.
+- Each assembler should omit an ID byte between `jmp _start` and `_start:` and can put any message after the ID byte.
+- The assembler should support `db` for defining bytes.

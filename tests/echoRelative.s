@@ -1,8 +1,5 @@
-tjf
-
-jmp _start
-
 _start:
+    tjf
     nop
     nop
     nop

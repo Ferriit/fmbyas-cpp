@@ -1,5 +1,3 @@
-jmp _start
-
 _start:
     ldi r1, 0xAA00      ; write position
     ldi r0, 0           ; character

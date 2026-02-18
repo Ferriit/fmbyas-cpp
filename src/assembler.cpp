@@ -213,7 +213,7 @@ std::vector<uint8_t> tokenize(const std::vector<std::string>& code, bool startRe
         if (tok.empty()) continue;
         if (tok.back() == ':') {
             labels[tok.substr(0, tok.size() - 1)] = static_cast<uint16_t>(instr_count * 5);
-        } else if (is_opcode(tok)) {
+        } else if (is_opcode(tok) || tok == "db") {
             instr_count++;
         }
     }
@@ -222,6 +222,29 @@ std::vector<uint8_t> tokenize(const std::vector<std::string>& code, bool startRe
         const std::string &tok = code[i];
         if (tok.empty() || tok.back() == ':') continue;
 
+        // Handle raw bytes
+        if (tok == "db") {
+            i++;
+            if (i >= code.size()) continue;
+
+            // Split by commas in case of multiple bytes
+            std::string operands = code[i];
+            size_t start = 0;
+            while (start < operands.size()) {
+                size_t end = operands.find(',', start);
+                if (end == std::string::npos) end = operands.size();
+
+                std::string byteStr = operands.substr(start, end - start);
+                uint16_t val = parseNumber(byteStr);
+                out.push_back(static_cast<uint8_t>(val & 0xFF));
+
+                start = end + 1;
+            }
+
+            continue;
+        }
+
+        // Handle regular opcodes
         if (is_opcode(tok)) {
             uint8_t op_idx = static_cast<uint8_t>(std::distance(
                 opcode::opcodes.begin(),
@@ -348,7 +371,11 @@ int main(int argc, char** argv) {
         buf += text + "\n";
     }
 
-    std::vector<std::string> temp = splitCode(removeComments(buf));
+    std::string message = "0x54 0x68 0x69 0x73 0x20 0x52 0x4F 0x4D 0x20 0x77 0x61 0x73 0x20 0x63 0x6F 0x6D 0x70 0x69 0x6C 0x65 0x64 0x20 0x77 0x69 0x74 0x68 0x20 0x46 0x4D 0x41 0x53 0x4D";
+
+    std::string strippedCode = "jmp _start" + removeComments(buf);
+
+    std::vector<std::string> temp = splitCode(strippedCode);
 
     std::vector<uint8_t> result = tokenize(temp, relJumping);
 
