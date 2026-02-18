@@ -35,7 +35,7 @@ namespace opcode {
         "shl", "shr", "rsl", "rsr",
         "cmp", "jmp", "jz", "jnz", "jgt", "jlt", "jge", "jle",
         "call", "callr", "ret",
-        "nop", "hlt", "wait", "waiti", "cont"
+        "nop", "hlt", "wait", "waiti", "cont", "tjf"
     };
 
     enum class eOpcode : uint8_t {
@@ -47,7 +47,7 @@ namespace opcode {
         SHL, SHR, RSL, RSR,
         CMP, JMP, JZ, JNZ, JGT, JLT, JGE, JLE,
         CALL, CALLR, RET,
-        NOP, HLT, WAIT, WAITI, CONT
+        NOP, HLT, WAIT, WAITI, CONT, TJF
     };
   
     const std::unordered_map<std::string, std::vector<int>> operands {
@@ -94,7 +94,8 @@ namespace opcode {
         {"hlt",   {NONE, NONE}},
         {"wait",  {REG, NONE}},
         {"waiti", {VAL, NONE}},
-        {"cont",  {NONE, NONE}}
+        {"cont",  {NONE, NONE}},
+        {"tjf",   {NONE, NONE}}
     };
 }
 
@@ -102,7 +103,8 @@ enum FlagBit {
     ZERO_BIT = 0,    // Set if result is 0
     CARRY_BIT = 1,   // Set if unsigned overflow occurs
     SIGN_BIT = 2,    // Set if result is negative (MSB is 1)
-    OVERFLOW_BIT = 3 // Set if signed overflow occurs
+    OVERFLOW_BIT = 3,// Set if signed overflow occurs
+    JUMP_BIT = 4     // Set if jumps should be relative instead of absolute
 };
 
 
@@ -476,7 +478,7 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
             case (uint8_t)(opcode::eOpcode::NOT): {
                 int reg = (mem[PC + 1] << 8) | mem[PC + 2];
                 
-                registers[reg] = !registers[reg];
+                registers[reg] = ~registers[reg];
                 break;
             }
             case (uint8_t)(opcode::eOpcode::XOR): {
@@ -542,56 +544,53 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JMP): {
-                int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                PC = val - 5;
+                int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                if (getFlag(registers, FlagBit::JUMP_BIT)) { // relative jump
+                    PC += offset - 5;
+                } else { // absolute jump
+                    PC = offset - 5;
+                }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JZ): {
                 if (getFlag(registers, FlagBit::ZERO_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JNZ): {
                 if (!getFlag(registers, FlagBit::ZERO_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JGT): {
                 if (!getFlag(registers, FlagBit::SIGN_BIT) && !getFlag(registers, FlagBit::ZERO_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JLT): {
                 if (getFlag(registers, FlagBit::SIGN_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JGE): {
                 if (!getFlag(registers, FlagBit::SIGN_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
             case (uint8_t)(opcode::eOpcode::JLE): {
                 if (getFlag(registers, FlagBit::SIGN_BIT) && getFlag(registers, FlagBit::ZERO_BIT)) {
-                    int val = (mem[PC + 1] << 8) | mem[PC + 2];
-
-                    PC = val - 5;
+                    int16_t offset = (int16_t)((mem[PC + 1] << 8) | mem[PC + 2]);
+                    PC = getFlag(registers, FlagBit::JUMP_BIT) ? PC + offset - 5 : offset - 5;
                 }
                 break;
             }
@@ -627,6 +626,10 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
                 int val = (mem[PC + 1] << 8) | mem[PC + 2];
                 
                 freeze = val;
+                break;
+            }
+            case (uint8_t)(opcode::eOpcode::TJF): {
+                setFlag(registers, FlagBit::JUMP_BIT, !getFlag(registers, FlagBit::JUMP_BIT));
                 break;
             }
 

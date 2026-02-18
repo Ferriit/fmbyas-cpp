@@ -61,7 +61,7 @@ HLT = Halts execution                                               (hlt)
 WAIT = Halts for the amount of cycles described by a register       (wait [register])
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
 CONT = Continue execution in RAM                                    (cont) (Compiles, but doesn't run in FMBYAS-2)
-tjf = Toggles the fj flag between 0 and 1                           (tjf)
+TJF = Toggles the fj flag between 0 and 1                           (tjf)
 ```
 - All instructions follow the format `OPCODE <DEST> <SRC>`
 
@@ -125,7 +125,7 @@ HLT = Halts execution until resume button is pressed                (hlt)
 WAIT = Halts for the amount of cycles described by a register       (wait [register])
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
 CONT = Continue execution in RAM                                    (cont)
-tjf = Toggles the fj flag between 0 and 1                           (tjf)
+TJF = Toggles the fj flag between 0 and 1                           (tjf)
 ```
 
 
@@ -162,3 +162,7 @@ tjf = Toggles the fj flag between 0 and 1                           (tjf)
 ### Arguments:
 - `--polling` - The polling rate of the keyboard (1000 means once every 1000 cycles). 1000 is the standard value.
 - `--registers` - Sets the amount of general purpose registers (2 allows for r0, r1. 16 for r0 - r15, 32 for r0 - r31...). The standard value is 16.
+
+## Assembler spec:
+- Always has to take in the file as the first argument.
+- `-r` is the second argument and if it's present, it makes the assembler start with relative jumping instead of absolute.
