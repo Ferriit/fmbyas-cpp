@@ -61,6 +61,7 @@ HLT = Halts execution                                               (hlt)
 WAIT = Halts for the amount of cycles described by a register       (wait [register])
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
 CONT = Continue execution in RAM                                    (cont) (Compiles, but doesn't run in FMBYAS-2)
+tjf = Toggles the fj flag between 0 and 1                           (tjf)
 ```
 - All instructions follow the format `OPCODE <DEST> <SRC>`
 
@@ -71,9 +72,12 @@ pc: Program counter. What the index of the currently executed instruction is
 stackptr: The length of the stack
 io0 - io7: I/O registers. io0 is for reading/writing to harddrive and io1 is for harddrive flag
 
+FLAGS ARE NOT ACCESSABLE USING LDI, MOV...
 fz: Zero flag
 fn: Negative flag
 fg: Greater flag
+
+fj: Jump flag. 0 is Absolute Jumping, 1 is Relative Jumping
 ```
 
 ## Quickscan list:
@@ -121,6 +125,7 @@ HLT = Halts execution until resume button is pressed                (hlt)
 WAIT = Halts for the amount of cycles described by a register       (wait [register])
 WAITI = Halts for a certain amount of cycles                        (waiti [value])
 CONT = Continue execution in RAM                                    (cont)
+tjf = Toggles the fj flag between 0 and 1                           (tjf)
 ```
 
 
@@ -129,6 +134,8 @@ CONT = Continue execution in RAM                                    (cont)
  - The emulator should have exactly 64K of space
  - The stack should start att 0xFFFF and then decrement
  - When writing to RAM, the high bits should get put in the address and the low bits should be put in the address + 1.
+ - The program written by the user should be put at address 0x0000 from ROM.
+ - the FJ flag should be set to 0 (absolute jumping) as default.
 
 ### Screen:
  - When printing to the screen, an ascii character should be put in the low bits of a register and write to memory location 0xAA00 + 2 * (x + y * 80).

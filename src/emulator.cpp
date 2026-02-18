@@ -5,8 +5,10 @@
 #include <fstream>
 #include <cstdint>
 #include <iostream>
+#ifdef CURSESSUPPORT
 #include <ncurses.h>
 #include <thread>
+#endif
 #include <chrono>
 #include <cstring>
 
@@ -215,6 +217,7 @@ bool getFlag(std::vector<uint16_t>& regs, FlagBit bit) {
 }
 
 
+#ifdef CURSESSUPPORT
 uint16_t pollKey() {
     int ch = getch();
 
@@ -241,8 +244,10 @@ uint16_t pollKey() {
 
     return (counter << 8) | keycode;
 }
+#endif
 
 
+#ifdef CURSESSUPPORT
 int drawScreen(std::vector<uint8_t>& mem) {
     while (running) {
         for (int y = 0; y < 25; y++) {
@@ -265,7 +270,7 @@ int drawScreen(std::vector<uint8_t>& mem) {
     }
     return 0;
 }
-
+#endif
 
 int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std::vector<uint8_t>& mem) {
     std::copy(bytes.begin(), bytes.end(), mem.begin());
@@ -285,7 +290,8 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
     PC = 0;
     SP = 65535; // memory amount - 2 bytes
     while (running) {
-         if (cycleCount % keyPollingRate == 0) {
+        #ifdef CURSESSUPPORT
+        if (cycleCount % keyPollingRate == 0) {
             oldChr = tmpChr;
             tmpChr = pollKey();
 
@@ -302,6 +308,7 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
         // cycle 1: keyRequests = 1
 
         if (registers[io7] > 511) registers[io7] = chr | ((keyRequests == 1) << 8); 
+        #endif
 
         uint8_t b = mem[PC];
         if (freeze > 0) {
@@ -628,7 +635,9 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
         skip:
         cycleCount++;
     }
-    // std::cout << registers[parseRegisters("io0")] << std::endl;
+    #ifndef CURSESSUPPORT
+    std::cout << registers[parseRegisters("io0")] << std::endl;
+    #endif
     return cycleCount;
 }
 
@@ -641,6 +650,10 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--registers")) {
             regAmount = to_int(argv[i + 1]);
         }
+        else if (!strcmp(argv[i], "help")){
+            std::cout << "Run fmasm on the assembly file you want to compile (fmasm file.s), then run fmemu in the same directory to emulate it.\n--polling - sets the polling rate of the keyboard. It runs once per n cycles.\n--registers - sets the amount of general purpose registers. r0 - rn-1." << std::endl;
+            return 0;
+        }
     }
 
     std::vector<uint8_t> bytes = readBytes("out.bin");
@@ -650,6 +663,7 @@ int main(int argc, char** argv) {
 
     int lookup[5] = {-1, 0, 0, 1, 1};
 
+    #ifdef DISASSEMBLE
     size_t i = 0;
     while (i < bytes.size()) {
         // Print raw bytes
@@ -684,7 +698,9 @@ int main(int argc, char** argv) {
         std::cout << std::endl;
         i += 5; // Next instruction
     }
+    #endif
 
+    #ifdef CURSESSUPPORT
     initscr();
     start_color();
     cbreak();
@@ -695,19 +711,21 @@ int main(int argc, char** argv) {
     init_pair(1, COLOR_BLACK, COLOR_WHITE);
 
     std::thread renderer(drawScreen, std::ref(memory));
+    #endif
 
     auto start = std::chrono::high_resolution_clock::now();
     int cycles = runProgram(bytes, registers, memory);
     auto end = std::chrono::high_resolution_clock::now();
 
     running = false;
-
+    
+    #ifdef CURSESSUPPORT
     renderer.join();
 
-    std::chrono::duration<double> duration = end - start;
-
     endwin();
+    #endif
 
+    std::chrono::duration<double> duration = end - start;
     std::cout << "CPU ran at " << cycles / duration.count() / 1000000 << "MHz" << std::endl;
 
     return 0;

@@ -1,0 +1,10 @@
+{
+    "command": "echo 'Installing the FMBYAS assembler (fmasm) and emulator (fmemu)'; echo 'Compiling fmemu and fmasm'; mkdir dist/; g++ src/emulator.cpp -o dist/fmemu $MENUMAKE_OPTIONS; g++ src/assembler.cpp -o dist/fmasm -O3 -march=native;sudo chmod +x dist/fmemu; sudo chmod +x dist/fmasm; sudo mv dist/fmemu /usr/local/bin/fmemu; sudo mv dist/fmasm /usr/local/bin/fmasm; echo 'Installation completed'",
+    "menu" : {
+        "Enable screen & Keyboard with curses": [true, "-DCURSESSUPPORT -lncurses"],
+        "Include simple disassembler with FMEMU": [false, "-DDISASSEMBLE"],
+        "Compilation settings": {
+            "Compile FMEMU for release (recommended)": [true, "-O3 -march=native"]
+        }
+    }
+}
