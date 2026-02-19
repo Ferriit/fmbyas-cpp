@@ -24,7 +24,7 @@ git clone https://github.com/ferriit/menumake-py
 cd ..
 echo "Opening menu..."
 
-python3 dist/menumake-py/src/main.py && python3 dist/menumake-py/src/main.py build
+python3 dist/menumake-py/src/main.py run build
 
 echo "Cleaning up..."
 rm -rf dist/
