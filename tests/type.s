@@ -53,3 +53,24 @@ _start:
         jnz loop        ; loop if escape wasn't pressed
 
     hlt
+
+; Pseudocode:
+; key_position = 0
+; 
+; while key != ESC:
+;     temp = request_input()
+;     fullkey = temp
+;     key = get_lower(tempkey)
+;
+;     if key_is_new:
+;         if key == Backspace:
+;             remove_letter()
+;             key_position--
+;         else:
+;             draw_letter()
+;             key_position++
+;
+;     if key_position < min_position:
+;         key_position = min_position
+; 
+; stop

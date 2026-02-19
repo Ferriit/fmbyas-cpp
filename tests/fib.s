@@ -19,3 +19,17 @@ _start:
 
 
     hlt
+
+
+; Pseudocode:
+; a = 1
+; b = 1
+;
+; while i != 0 {
+;     a_old = a
+;     a = a_old + b
+; 
+;     output(a)
+;     i--
+; }
+; stop
