@@ -638,20 +638,6 @@ int runProgram(std::vector<uint8_t> bytes, std::vector<uint16_t>& registers, std
         skip:
         cycleCount++;
     }
-    #if !defined(CURSESSUPPORT) || defined(OUTDEBUG)
-        std::cout << "\nRegister output:" << std::endl;
-        for (int i = 0; registerName(i) != "???"; i++) {
-            std::cout << registerName(i) << ": " << registers[i] << std::endl;
-        }
-
-        std::cout << "\nOUTPUT: " << registers[parseRegisters("io0")] << std::endl;
-        std::cout << "Writing memory data to mem.bin..." << std::endl;
-
-        std::ofstream outstream("mem.bin", std::ios::binary);
-        outstream.write(reinterpret_cast<const char*>(mem.data()), mem.size());
-
-        outstream.close();
-    #endif
     return cycleCount;
 }
 
@@ -737,6 +723,22 @@ int main(int argc, char** argv) {
     renderer.join();
 
     endwin();
+    #endif
+
+
+    #if !defined(CURSESSUPPORT) || defined(OUTDEBUG)
+        std::cout << "\nRegister output:" << std::endl;
+        for (int i = 0; registerName(i) != "???"; i++) {
+            std::cout << registerName(i) << ": " << registers[i] << std::endl;
+        }
+
+        std::cout << "\nOUTPUT: " << registers[parseRegisters("io0")] << std::endl;
+        std::cout << "Writing memory data to mem.bin..." << std::endl;
+
+        std::ofstream outstream("mem.bin", std::ios::binary);
+        outstream.write(reinterpret_cast<const char*>(memory.data()), memory.size());
+
+        outstream.close();
     #endif
 
     std::chrono::duration<double> duration = end - start;
