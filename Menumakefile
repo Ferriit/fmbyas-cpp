@@ -7,6 +7,12 @@ FMEMU options:
 	index = "0"
 	flags = "-DCURSESSUPPORT -lncurses"
 
+	[Enable memory and register output (default on if curses is off)]
+	type = "toggle"
+	value = "false"
+	index = "0"
+	flags = "-DOUTDEBUG"
+
 	[Include simple disassembler with FMEMU]
 	type = "toggle"
 	value = "false"
