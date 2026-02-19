@@ -42,5 +42,6 @@
 
 dist/*
 out.bin
+mem.bin
 .makemenu.sh
 .makemenu.make
