@@ -1,0 +1,45 @@
+command: ".menuinstall.sh"
+
+FMEMU options:
+	[Enable screen & Keyboard with curses]
+	type = "toggle"
+	value = "true"
+	index = "0"
+	flags = "-DCURSESSUPPORT -lncurses"
+
+	[Include simple disassembler with FMEMU]
+	type = "toggle"
+	value = "false"
+	index = "0"
+	flags = "-DDISASSEMBLE"
+
+	Compilation options:
+		[Compile for release (recommended)]
+		type = "toggle"
+		value = "true"
+		index = "0"
+		flags = "-march=native -flto -std=c++20 -fno-rtti"
+
+		[Optimization level]
+		type = "int"
+		value = "3"
+		index = "0"
+		flags = "-O$"
+		min = 0
+		max = 3
+
+FMASM options:
+	Compilation options:
+		[Compile for release (recommended)]
+		type = "toggle"
+		value = "true"
+		index = "1"
+		flags = "-march=native -flto -std=c++20 -fno-rtti"
+
+		[Optimization level]
+		type = "int"
+		value = "3"
+		index = "1"
+		flags = "-O$"
+		min = 0
+		max = 3

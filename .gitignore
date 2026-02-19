@@ -43,3 +43,4 @@
 dist/*
 out.bin
 .makemenu.sh
+.makemenu.make
