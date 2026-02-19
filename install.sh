@@ -19,7 +19,7 @@ echo "Temporarily downloading menumake..."
 mkdir dist/
 cd dist
 rm -rf *
-git clone https://github.com/ferriit/menumake-py
+git clone https://github.com/ferriit/menumake-py --depth=1
 
 cd ..
 echo "Opening menu..."
