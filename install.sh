@@ -4,8 +4,8 @@
 # 
 # echo "Compiling fmemu and fmasm"
 # mkdir dist/
-# g++ src/emulator.cpp -o dist/fmemu -lncurses -O3 -march=native -DCURSESSUPPORT -DDISASSEMBLE
-# g++ src/assembler.cpp -o dist/fmasm -O3 -march=native
+# g++ src/emulator.cpp -o dist/fmemu O3 -march=native -flto -std=c++20 -fno-exceptions -fno-rtti -lncurses -DCURSESSUPPORT -DDISASSEMBLE
+# g++ src/assembler.cpp -o dist/fmasm -O3 -march=native -flto -std=c++20 -fno-exceptions -fno-rtti
 # 
 # sudo chmod +x dist/fmemu
 # sudo chmod +x dist/fmasm
