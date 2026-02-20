@@ -1,4 +1,4 @@
-#!usr/bin/env bash
+#!/usr/bin/env bash
 
 # echo "Installing the FMBYAS assembler (fmasm) and emulator (fmemu)"
 # 
