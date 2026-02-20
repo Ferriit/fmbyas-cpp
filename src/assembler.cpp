@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstring>
 
-
 namespace opcode {
     constexpr int NONE = 0;
     constexpr int REG = 1;

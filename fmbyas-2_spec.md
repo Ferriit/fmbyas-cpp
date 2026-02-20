@@ -138,7 +138,7 @@ TJF = Toggles the fj flag between 0 and 1                           (tjf)
  - The FJ flag should be set to 0 (absolute jumping) as default.
 
 ### Screen:
- - When printing to the screen, an ascii character should be put in the low bits of a register and write to memory location 0xAA00 + 2 * (x + y * 80).
+ - When printing to the screen, an ascii character should be put in the low bits of a register and write to memory location 0xAA00 + 2 * (x + y * 80) (The max location is therefore 0xB9A0).
  - The screen size should be 80x25.
 
 ### Keyboard:
